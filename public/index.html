@@ -1,120 +1,81 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>Hentai Hub</title>
   <style>
     body {
-      font-family: Arial, sans-serif;
-      background: #111;
+      background: #0f0f0f;
       color: white;
-      margin: 0;
+      font-family: Arial, sans-serif;
       padding: 20px;
     }
-
-    h1 {
-      text-align: center;
-    }
-
-    form {
-      text-align: center;
-      margin-bottom: 30px;
-    }
-
-    button {
-      padding: 8px 14px;
-      cursor: pointer;
-      background-color: white;
-    }
-
-    .videos {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-      gap: 15px;
-    }
-
-    .video-card {
-      background: #1c1c1c;
-      padding: 10px;
-      border-radius: 8px;
-    }
-
     video {
-      width: 100%;
-      border-radius: 6px;
+      width: 300px;
+      display: block;
+      margin: 10px 0;
     }
-
-    .delete {
-      background: red;
-      color: white;
-      border: none;
-      margin-top: 6px;
-      width: 100%;
+    button {
+      margin-top: 5px;
+      cursor: pointer;
     }
   </style>
 </head>
 <body>
 
-  <h1>Hentai Hub</h1>
+<h2>Upload Video</h2>
 
-  <form id="uploadForm">
-    <input type="file" name="video" accept="video/mp4,video/webm" required />
-    <button type="submit">Upload</button>
-  </form>
+<input type="file" id="file" accept="video/*">
+<button onclick="upload()">Upload</button>
 
-  <div class="videos" id="videos"></div>
+<h2>Videos</h2>
+<div id="videos"></div>
 
-  <script>
-    const form = document.getElementById("uploadForm");
-    const videosDiv = document.getElementById("videos");
+<script>
+async function upload() {
+  const fileInput = document.getElementById("file");
+  if (!fileInput.files.length) return alert("Select a video");
 
-    async function loadVideos() {
-      videosDiv.innerHTML = "";
-      const res = await fetch("/videos");
-      const files = await res.json();
+  const formData = new FormData();
+  formData.append("video", fileInput.files[0]);
 
-      files.forEach(file => {
-        const card = document.createElement("div");
-        card.className = "video-card";
+  const res = await fetch("/upload", {
+    method: "POST",
+    body: formData
+  });
 
-        card.innerHTML = `
-          <video controls src="/uploads/${file}"></video>
-          <button class="delete">Delete</button>
-        `;
+  if (res.ok) {
+    loadVideos();
+  } else {
+    alert("Upload failed");
+  }
+}
 
-        card.querySelector(".delete").onclick = async () => {
-          await fetch("/delete/" + file, { method: "DELETE" });
-          loadVideos();
-        };
+async function loadVideos() {
+  const res = await fetch("/videos");
+  const files = await res.json();
+  const container = document.getElementById("videos");
+  container.innerHTML = "";
 
-        videosDiv.appendChild(card);
-      });
-    }
+  files.forEach(file => {
+    const video = document.createElement("video");
+    video.src = `/uploads/${file}`;
+    video.controls = true;
 
-    form.onsubmit = async e => {
-      e.preventDefault();
-
-      const fileInput = form.querySelector("input[type=file]");
-      if (!fileInput.files.length) return;
-
-      const data = new FormData();
-      data.append("video", fileInput.files[0]);
-
-      const res = await fetch("/upload", {
-        method: "POST",
-        body: data
-      });
-
-      if (res.ok) {
-        form.reset();
-        loadVideos();
-      } else {
-        alert("Upload failed (file too large or server issue)");
-      }
+    const del = document.createElement("button");
+    del.textContent = "Delete";
+    del.onclick = async () => {
+      await fetch(`/delete/${file}`, { method: "DELETE" });
+      loadVideos();
     };
 
-    loadVideos();
-  </script>
+    container.appendChild(video);
+    container.appendChild(del);
+  });
+}
+
+loadVideos();
+</script>
 
 </body>
 </html>

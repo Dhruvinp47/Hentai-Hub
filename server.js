@@ -1,41 +1,56 @@
-const express = require('express');
-const multer = require('multer');
-const fs = require('fs');
+const express = require("express");
+const multer = require("multer");
+const fs = require("fs");
+const path = require("path");
+
 const app = express();
-const port = 3000;
+const PORT = process.env.PORT || 3000;
 
-// Storage config
+/* Ensure uploads folder exists */
+if (!fs.existsSync("uploads")) {
+  fs.mkdirSync("uploads");
+}
+
+/* Serve frontend and uploaded files */
+app.use(express.static("public"));
+app.use("/uploads", express.static("uploads"));
+
+/* Multer config */
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, 'uploads/'),
-  filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname)
-});
-const upload = multer({ storage });
-
-// Serve public folder
-app.use(express.static('public'));
-app.use('/uploads', express.static('uploads'));
-
-// Endpoint to upload
-app.post('/upload', upload.single('video'), (req, res) => {
-  if (!req.file) return res.status(400).send('No file uploaded');
-  res.json({ url: `/uploads/${req.file.filename}`, filename: req.file.originalname });
-});
-
-// Endpoint to list all videos
-app.get('/videos', (req, res) => {
-  const files = fs.readdirSync('uploads/');
-  const videos = files.map(f => ({ url: `/uploads/${f}`, filename: f }));
-  res.json(videos);
-});
-
-// Delete video
-app.delete('/videos/:filename', (req, res) => {
-  const filePath = `uploads/${req.params.filename}`;
-  if (fs.existsSync(filePath)) {
-    fs.unlinkSync(filePath);
-    return res.sendStatus(200);
+  destination: "uploads",
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + path.extname(file.originalname));
   }
-  res.sendStatus(404);
 });
 
-app.listen(port, () => console.log(`Server running on http://localhost:${port}`));
+const upload = multer({
+  storage,
+  limits: { fileSize: 50 * 1024 * 1024 } // 50MB
+});
+
+/* Upload route */
+app.post("/upload", upload.single("video"), (req, res) => {
+  if (!req.file) {
+    return res.status(400).send("No file received");
+  }
+  res.sendStatus(200);
+});
+
+/* List videos */
+app.get("/videos", (req, res) => {
+  fs.readdir("uploads", (err, files) => {
+    if (err) return res.json([]);
+    res.json(files);
+  });
+});
+
+/* Delete video */
+app.delete("/delete/:name", (req, res) => {
+  fs.unlink(path.join("uploads", req.params.name), () => {
+    res.sendStatus(200);
+  });
+});
+
+app.listen(PORT, () => {
+  console.log("Server running on port", PORT);
+});
